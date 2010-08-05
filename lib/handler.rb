@@ -104,11 +104,18 @@ module Handler
       define_method :generate_handle do
         h = Handler.generate_handle(send(attribute), options[:separator])
         if options[:unique]
-          
+
           # increase number while *other* records exist with the same handle
           # (record might be saved and should keep its handle)
-          while self.class.all(:conditions => ["#{options[:write_to]} = ? AND id != ?", h, id]).size > 0
+
+          dups_lambda = lambda { self.class.all(:conditions => ["#{options[:write_to]} = ? AND id != ?", h, id]).size } unless self.new_record?
+          dups_lambda = lambda { self.class.all(:conditions => ["#{options[:write_to]} = ?", h]).size } if self.new_record?
+
+          duplicates = dups_lambda.call
+
+          while duplicates > 0
             h = Handler.next_handle(h, options[:separator])
+            duplicates = dups_lambda.call
           end
         end
         h
